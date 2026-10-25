@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b0b0d" />
+    <meta name="color-scheme" content="dark" />
+    <title>Encrypted vault</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="glow" aria-hidden="true"></div>
+
+    <header class="top">
+      <a class="brand" href="#" title="home">
+        <span id="brand-logo" class="brand-mark"></span>
+        <h1><span id="brand-name">vault</span><span class="dot">.</span></h1>
+      </a>
+      <p id="brand-tagline" class="tagline"></p>
+      <div class="top-right">
+        <div id="who" class="who"></div>
+        <a class="ghost-link" href="#admin" title="operator panel">admin</a>
+      </div>
+    </header>
+
+    <main id="app" class="app">
+      <noscript>
+        <section class="panel">
+          <h2>This page needs one small script</h2>
+          <p class="muted">
+            Your files are encrypted and decrypted <em>in this tab</em>. The server only ever holds
+            ciphertext it cannot read, so the key material must exist in the browser — which means
+            some JavaScript, and only that.
+          </p>
+          <p class="muted">
+            If you want a client with <strong>no JavaScript at all</strong>, use the CLI:<br />
+            <code class="mono">vault put clip.mp4</code> ·
+            <code class="mono">vault cat f_… | mpv -</code>
+          </p>
+        </section>
+      </noscript>
+    </main>
+
+    <footer class="foot">
+      <p>
+        This page never sends your passphrase or your keys anywhere. Encryption happens in this tab;
+        the server only ever receives ciphertext.
+      </p>
+      <p id="api-base" class="mono subtle"></p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,73 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # One job, fixed order: the web conformance suite writes the JS-produced blob
+  # that the Rust interop test reads. Splitting them means the interop test
+  # silently skips — which is exactly the failure mode this project cannot have.
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Web deps
+        working-directory: web
+        run: npm ci --no-audit --no-fund
+
+      - name: Web typecheck + conformance + build
+        working-directory: web
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+          npm run build
+
+      - name: Rust tests (JS interop required)
+        env:
+          VAULT_REQUIRE_JS_INTEROP: '1'
+        run: cargo test --all
+
+      - name: Conformance vectors still match the core
+        run: cargo run -q -p vault-core --bin vecgen -- --check
+
+      - name: Interop fixture must exist (guards against a silently skipped test)
+        run: test -f web/.conformance/js-stream-blob.json
+
+  # The APK cannot be built here yet: no toolchain was available when the repo was
+  # created, so android/ is a scaffold (see android/README.md). Flip this job on
+  # only after a JVM conformance test exists and passes locally.
+  #
+  # android:
+  #   runs-on: ubuntu-24.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-java@v4
+  #       with: { distribution: temurin, java-version: '17' }
+  #     - run: cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest

@@ -1,0 +1,31 @@
+# build artefacts
+target/
+**/target/
+
+# node
+node_modules/
+web/dist/
+web/.conformance/
+web/*.tsbuildinfo
+
+# runtime data (never commit: ciphertext, sqlite, keys).
+# NOTE: anchored to the repo root on purpose. An unanchored `data/` also ignores
+# crates/vault-core/data/ and web/src/data/ (the BIP39 wordlists), which silently
+# produced a repo that could not build from a clean clone.
+/data/
+/blobs/
+/secrets/
+*.db
+*.db-wal
+*.db-shm
+
+# local env / secrets
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log

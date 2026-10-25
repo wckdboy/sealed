@@ -1,0 +1,136 @@
+# Coolify-ready, zero-config deployment.
+#
+#   Coolify → + New → Docker Compose (this repo, file docker-compose.yaml) → Deploy
+#   or:  docker compose up -d --build
+#
+# There are no required variables. The first boot generates the three load-bearing
+# secrets into the `vault-secrets` volume (0600) and every later boot reuses them:
+#
+#   pepper     login verifier HMAC key     (lost = every account must re-enrol)
+#   signing    blob URL signing key        (lost = outstanding URLs 403)
+#   portal     PKEK for public content     (lost = public playback breaks)
+#
+# The app refuses to start if the database has accounts but the secrets are new —
+# i.e. if the secrets volume was lost — instead of silently locking everyone out.
+# Back `vault-secrets` up separately from `vault-data`: that separation is the
+# point, so a stolen database backup never contains the pepper.
+#
+# ── What Coolify fills in ────────────────────────────────────────────────────────
+# The `${SERVICE_*}` names below are Coolify "magic" variables. Coolify creates them
+# on first deploy, shows them under Environment Variables, and keeps their values
+# stable across redeploys. The IDs must match the service name (`app`) and must be a
+# single token (no extra underscores) or Coolify will not treat them as magic.
+#
+#   SERVICE_FQDN_APP_8080   the domain you assign, routed to container port 8080
+#   SERVICE_URL_APP_8080    the same as a full URL with scheme (https://…)
+#
+# Outside Coolify they expand to nothing and the defaults below apply, so the same
+# file works with plain `docker compose`.
+
+name: vault
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # ── Coolify domain integration ──
+      # Declaring the FQDN variable is what makes Coolify offer to generate a domain
+      # for this service on first deploy. Assign or change it in the UI:
+      #   Domains → Add domain → service `app`, port 8080, e.g. https://vault.example.com:8080
+      SERVICE_FQDN_APP_8080: ${SERVICE_FQDN_APP_8080:-}
+      # Blob URLs stay relative ("/v1/blobs/…") on purpose: one origin, any proxy,
+      # any domain, no configuration to get wrong. There is no base-URL variable.
+
+      # ── Where state lives (volumes, not env) ──
+      VAULT_SECRET_DIR: /secrets
+      VAULT_AUTO_SECRETS: "1"
+      DATABASE_URL: sqlite:/data/vault.db
+      VAULT_BLOB_DIR: /data/blobs
+      VAULT_WEB_DIR: /srv/web
+
+      # ── Secrets: empty = generated into /secrets on first boot ──
+      # These are editable fields in Coolify's UI. Leave them empty and the volume
+      # owns the secrets (recommended: Coolify's database never sees them).
+      #
+      # To let Coolify hold custody instead, replace the blank values with its magic
+      # generators — it generates once, persists, and shows them in the UI:
+      #     VAULT_PEPPER: ${SERVICE_PASSWORD_64_PEPPER}
+      #     VAULT_SIGNING: ${SERVICE_PASSWORD_64_SIGNING}
+      #     VAULT_PORTAL_KEY: ${SERVICE_PASSWORD_64_PORTAL}
+      # Both forms are accepted: 64 hex chars are decoded as 32 bytes, anything else
+      # is used as raw text. A portal key that is not exactly 32 bytes is derived with
+      # a domain-separated hash (healthz reports "derived": true).
+      #
+      # Switching modes after accounts exist is refused by the pepper fingerprint.
+      # To migrate, paste the current /secrets/pepper.hex into the variable — never
+      # let Coolify generate a fresh one for an instance that has accounts.
+      VAULT_PEPPER: ${VAULT_PEPPER:-}
+      VAULT_SIGNING: ${VAULT_SIGNING:-}
+      VAULT_PORTAL_KEY: ${VAULT_PORTAL_KEY:-}
+
+      # Operator panel at /#admin. Empty (the default) means the whole `/v1/admin/*`
+      # surface behaves as if it does not exist — 404, no token prompt, nothing to
+      # scan for. Set a long random value to switch it on:
+      #   openssl rand -base64 36
+      VAULT_ADMIN_TOKEN: ${VAULT_ADMIN_TOKEN:-}
+
+      # ── Proxy / CDN behaviour ──
+      # Behind Coolify's Traefik (or Bunny) the real client IP arrives in
+      # X-Forwarded-For. Set to 0 only if the container is exposed directly.
+      VAULT_TRUST_PROXY: ${VAULT_TRUST_PROXY:-1}
+      VAULT_BLOB_CACHE_SECONDS: ${VAULT_BLOB_CACHE_SECONDS:-3600}
+      VAULT_ORIGIN_SECRET: ${VAULT_ORIGIN_SECRET:-}
+
+      # Coolify terminates TLS and forwards the original scheme; same-origin means no
+      # CORS headers are needed. Only set this if you serve the PWA from elsewhere.
+      VAULT_ALLOWED_ORIGINS: ${VAULT_ALLOWED_ORIGINS:-}
+
+      # New accounts get zero storage (`basic`: can sign in, cannot upload). The
+      # server cannot inspect what it stores, so a quota is the only abuse control
+      # that works: an account with 0 bytes is worthless to a spammer, while
+      # `premium1` hands every bot 1 TB. For a private, single-user instance set
+      # this to `premium1` — see docs/protection.md §4.
+      VAULT_DEFAULT_TIER: ${VAULT_DEFAULT_TIER:-basic}
+
+      # Trust & safety. The image ships a placeholder list that matches nothing, so
+      # screening is wired but inert until you point this at real feeds:
+      #   VAULT_HASH_LISTS=real=/data/lists/feed.txt
+      VAULT_HASH_LISTS: ${VAULT_HASH_LISTS:-placeholder=/srv/hashlists/placeholder.txt}
+      VAULT_DMCA_CONTACT: ${VAULT_DMCA_CONTACT:-}
+
+      # Deliberate-weakening escape hatch (rate limits off, no hash lists, cache
+      # TTL 0). Those settings are rejected without it.
+      VAULT_ALLOW_UNSAFE: ${VAULT_ALLOW_UNSAFE:-0}
+
+      RUST_LOG: ${RUST_LOG:-info,tower_http=warn}
+    expose:
+      - "8080"
+    volumes:
+      - vault-data:/data
+      - vault-secrets:/secrets
+    # Hardening that costs nothing and removes whole classes of mistake.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Coolify wires Traefik to the exposed port; no published port is needed and
+    # publishing one would bypass the proxy's TLS. Without Coolify, publish instead:
+    # ports:
+    #   - "8080:8080"
+
+volumes:
+  vault-data:
+  vault-secrets:

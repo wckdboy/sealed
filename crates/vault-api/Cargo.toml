@@ -1,0 +1,31 @@
+[package]
+name = "vault-api"
+description = "Sealed API: anonymous accounts, zero-knowledge blob storage, portal-gated public streaming."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vault-api"
+path = "src/main.rs"
+
+[dependencies]
+vault-core = { workspace = true }
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tower-http = { version = "0.6", features = ["trace", "limit", "cors", "fs", "set-header"] }
+futures-util = "0.3"
+tokio-util = { version = "0.7", features = ["io"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

@@ -1,0 +1,6 @@
+# Placeholder screening list — it matches NOTHING by construction.
+# Replace or extend via VAULT_HASH_LISTS (see docs/deploy-hetzner.md).
+# Format: one lowercase sha256 hex digest per line, in this project's
+# domain-separated digest space (ids::plaintext_digest).
+4f47f4d917c49ad211637c60f1276ae262e7288fda69682cabe091c9f63b3d8a
+37bd0b241dd7c2f98de859bfa7bd6d57444774b1581ee034b448698bf2b01726

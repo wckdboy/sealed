@@ -1,0 +1,28 @@
+[package]
+name = "vault-cli"
+description = "vault — a zero-JS command-line client: signup, unlock, upload, download, stream."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "vault"
+path = "src/main.rs"
+
+[dependencies]
+vault-core = { workspace = true }
+clap = { version = "4", features = ["derive", "env"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rpassword = "7"
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[dev-dependencies]
+vault-api = { path = "../vault-api" }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+tempfile = "3"

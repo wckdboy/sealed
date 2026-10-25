@@ -1,0 +1,21 @@
+# Keep the build context small and free of local state.
+.git
+.github
+target
+**/target
+web/node_modules
+web/dist
+web/.conformance
+android
+spec
+docs
+data
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.log
+README.md
+LICENSE
+Makefile

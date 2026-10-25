@@ -1,0 +1,9 @@
+{
+  "name": "Sealed",
+  "app": "Sealed",
+  "tagline": "an encrypted vault you can host yourself",
+  "accent": "#4f8cff",
+  "homepage": "https://example.invalid",
+  "dmca_default": "dmca@example.invalid",
+  "account_label": "account number"
+}
